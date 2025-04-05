@@ -1,10 +1,14 @@
-import { users, type User, type InsertUser, type Category, type Auction, type InsertAuction, type Bid, type InsertBid, type Watchlist, type InsertWatchlist, categories, InsertCategory, auctions, bids, watchlist } from "@shared/schema";
+import { users, type User, type InsertUser, categories, type Category, type InsertCategory, 
+  auctions, type Auction, type InsertAuction, bids, type Bid, type InsertBid, 
+  watchlist, type Watchlist, type InsertWatchlist } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 
+// Import the DatabaseStorage implementation
+import { DatabaseStorage } from './storage.db';
+
 const MemoryStore = createMemoryStore(session);
 
-// Storage interface
 export interface IStorage {
   // User methods
   getUser(id: number): Promise<User | undefined>;
@@ -40,7 +44,7 @@ export interface IStorage {
   isInWatchlist(userId: number, auctionId: number): Promise<boolean>;
   
   // Session store
-  sessionStore: any; // Express session store
+  sessionStore: session.Store;
 }
 
 export class MemStorage implements IStorage {
@@ -55,8 +59,8 @@ export class MemStorage implements IStorage {
   currentAuctionId: number;
   currentBidId: number;
   currentWatchlistId: number;
-  sessionStore: any; // Express session store
-
+  sessionStore: session.Store;
+  
   constructor() {
     this.users = new Map();
     this.categories = new Map();
@@ -71,134 +75,126 @@ export class MemStorage implements IStorage {
     this.currentWatchlistId = 1;
     
     this.sessionStore = new MemoryStore({
-      checkPeriod: 86400000 // 24 hours
+      checkPeriod: 86400000 // prune expired entries every 24h
     });
     
-    // Initialize with some categories and sample data
-    this.initializeData();
+    this.initializeData().catch(console.error);
   }
   
   private async initializeData() {
-    // Initialize categories first
-    await this.initializeCategories();
-    // Then initialize sample data that depends on categories
     await this.initializeSampleData();
   }
   
   private async initializeSampleData() {
-    try {
-      // Create a test user
-      const userData = {
-        username: "testuser",
-        email: "test@example.com",
-        password: "password123", // In a real app, this would be hashed
-        avatar: "https://i.pravatar.cc/150?u=testuser"
-      };
-      const user = await this.createUser(userData);
-      
-      // Create sample auctions
-      const auction1Data = {
-        title: "Vintage Polaroid Camera",
-        description: "A classic Polaroid camera from the 1970s in excellent working condition. Includes original case and manual.",
-        imageUrl: "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?ixlib=rb-1.2.1&auto=format&fit=crop&w=1000&q=80",
-        categoryId: 3, // Vintage category
-        startingPrice: "50",
-        currentPrice: "50",
-        sellerId: user.id,
-        endTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        status: "active" as const,
-        featured: true
-      };
-      const auction1 = await this.createAuction(auction1Data);
-      
-      const auction2Data = {
-        title: "Limited Edition Vinyl Record Collection",
-        description: "Collection of 5 rare, limited edition vinyl records from the 1980s. All in mint condition, never played.",
-        imageUrl: "https://images.unsplash.com/photo-1539375665275-f9de415ef9ac?ixlib=rb-1.2.1&auto=format&fit=crop&w=1000&q=80",
-        categoryId: 1, // Collectibles category
-        startingPrice: "200",
-        currentPrice: "250",
-        sellerId: user.id,
-        endTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), 
-        status: "active" as const,
-        featured: true
-      };
-      const auction2 = await this.createAuction(auction2Data);
-      
-      const auction3Data = {
-        title: "Professional DSLR Camera",
-        description: "High-end DSLR camera with multiple lenses, tripod, and carrying case. Perfect for professional photography.",
-        imageUrl: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?ixlib=rb-1.2.1&auto=format&fit=crop&w=1000&q=80",
-        categoryId: 2, // Electronics category
-        startingPrice: "600",
-        currentPrice: "800",
-        sellerId: user.id,
-        endTime: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
-        status: "active" as const,
-        featured: false
-      };
-      const auction3 = await this.createAuction(auction3Data);
-      
-      const auction4Data = {
-        title: "Abstract Canvas Painting",
-        description: "Original abstract painting by emerging artist. Acrylic on canvas, 24x36 inches, ready to hang.",
-        imageUrl: "https://images.unsplash.com/photo-1549289524-06cf8837ace5?ixlib=rb-1.2.1&auto=format&fit=crop&w=1000&q=80",
-        categoryId: 4, // Art category
-        startingPrice: "150",
-        currentPrice: "150",
-        sellerId: user.id,
-        endTime: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
-        status: "active" as const,
-        featured: true
-      };
-      const auction4 = await this.createAuction(auction4Data);
-      
-      // Create some sample bids
-      await this.createBid({
-        auctionId: auction2.id,
-        userId: user.id,
-        amount: "220"
-      });
-      
-      await this.createBid({
-        auctionId: auction2.id,
-        userId: user.id,
-        amount: "250"
-      });
-      
-      await this.createBid({
-        auctionId: auction3.id,
-        userId: user.id,
-        amount: "650"
-      });
-      
-      await this.createBid({
-        auctionId: auction3.id,
-        userId: user.id,
-        amount: "700"
-      });
-      
-      await this.createBid({
-        auctionId: auction3.id,
-        userId: user.id,
-        amount: "800"
-      });
-      
-      // Add some items to watchlist
-      await this.addToWatchlist({
-        userId: user.id,
-        auctionId: auction1.id
-      });
-      
-      await this.addToWatchlist({
-        userId: user.id,
-        auctionId: auction4.id
-      });
-      
-      console.log("Sample data initialized successfully");
-    } catch (error) {
-      console.error("Error initializing sample data:", error);
-    }
+    await this.initializeCategories();
+    
+    // Create sample user
+    const userData = {
+      username: "testuser",
+      email: "test@example.com",
+      password: "password123", // In a real app, this would be hashed
+      avatar: "https://i.pravatar.cc/150?u=testuser"
+    };
+    const user = await this.createUser(userData);
+    
+    // Create sample auctions
+    const auction1Data = {
+      title: "Vintage Polaroid Camera",
+      description: "A classic Polaroid camera from the 1970s in excellent working condition. Includes original case and manual.",
+      imageUrl: "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?ixlib=rb-1.2.1&auto=format&fit=crop&w=1000&q=80",
+      categoryId: 3, // Vintage category
+      startingPrice: "50",
+      currentPrice: "50",
+      sellerId: user.id,
+      endTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      status: "active" as const,
+      featured: true
+    };
+    const auction1 = await this.createAuction(auction1Data);
+    
+    const auction2Data = {
+      title: "Limited Edition Vinyl Record Collection",
+      description: "Collection of 5 rare, limited edition vinyl records from the 1980s. All in mint condition, never played.",
+      imageUrl: "https://images.unsplash.com/photo-1539375665275-f9de415ef9ac?ixlib=rb-1.2.1&auto=format&fit=crop&w=1000&q=80",
+      categoryId: 1, // Collectibles category
+      startingPrice: "200",
+      currentPrice: "250",
+      sellerId: user.id,
+      endTime: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), 
+      status: "active" as const,
+      featured: true
+    };
+    const auction2 = await this.createAuction(auction2Data);
+    
+    const auction3Data = {
+      title: "Professional DSLR Camera",
+      description: "High-end DSLR camera with multiple lenses, tripod, and carrying case. Perfect for professional photography.",
+      imageUrl: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?ixlib=rb-1.2.1&auto=format&fit=crop&w=1000&q=80",
+      categoryId: 2, // Electronics category
+      startingPrice: "600",
+      currentPrice: "800",
+      sellerId: user.id,
+      endTime: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+      status: "active" as const,
+      featured: false
+    };
+    const auction3 = await this.createAuction(auction3Data);
+    
+    const auction4Data = {
+      title: "Abstract Canvas Painting",
+      description: "Original abstract painting by emerging artist. Acrylic on canvas, 24x36 inches, ready to hang.",
+      imageUrl: "https://images.unsplash.com/photo-1549289524-06cf8837ace5?ixlib=rb-1.2.1&auto=format&fit=crop&w=1000&q=80",
+      categoryId: 4, // Art category
+      startingPrice: "150",
+      currentPrice: "150",
+      sellerId: user.id,
+      endTime: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+      status: "active" as const,
+      featured: true
+    };
+    const auction4 = await this.createAuction(auction4Data);
+    
+    // Create some sample bids
+    await this.createBid({
+      auctionId: auction2.id,
+      userId: user.id,
+      amount: "220"
+    });
+    
+    await this.createBid({
+      auctionId: auction2.id,
+      userId: user.id,
+      amount: "250"
+    });
+    
+    await this.createBid({
+      auctionId: auction3.id,
+      userId: user.id,
+      amount: "650"
+    });
+    
+    await this.createBid({
+      auctionId: auction3.id,
+      userId: user.id,
+      amount: "700"
+    });
+    
+    await this.createBid({
+      auctionId: auction3.id,
+      userId: user.id,
+      amount: "800"
+    });
+    
+    // Add some items to watchlist
+    await this.addToWatchlist({
+      userId: user.id,
+      auctionId: auction1.id
+    });
+    
+    await this.addToWatchlist({
+      userId: user.id,
+      auctionId: auction4.id
+    });
   }
   
   private initializeCategories() {
@@ -209,36 +205,35 @@ export class MemStorage implements IStorage {
       { name: "Art & Decor", slug: "art", type: "art", imageUrl: "https://images.unsplash.com/photo-1518049362265-d5b2a6b00b37?ixlib=rb-1.2.1&auto=format&fit=crop&w=600&q=80" }
     ];
     
-    initialCategories.forEach(category => {
+    for (const category of initialCategories) {
       this.createCategory(category);
-    });
+    }
   }
-
-  // User methods
+  
   async getUser(id: number): Promise<User | undefined> {
     return this.users.get(id);
   }
-
+  
   async getUserByUsername(username: string): Promise<User | undefined> {
     return Array.from(this.users.values()).find(
-      (user) => user.username === username,
+      user => user.username.toLowerCase() === username.toLowerCase()
     );
   }
   
   async getUserByEmail(email: string): Promise<User | undefined> {
     return Array.from(this.users.values()).find(
-      (user) => user.email === email,
+      user => user.email.toLowerCase() === email.toLowerCase()
     );
   }
-
+  
   async createUser(insertUser: InsertUser): Promise<User> {
     const id = this.currentUserId++;
     const createdAt = new Date();
-    // Ensure all required fields are properly set with correct types
     const user: User = { 
       ...insertUser, 
       id, 
       createdAt,
+      updatedAt: createdAt,
       fullName: insertUser.fullName || null,
       avatar: insertUser.avatar || null
     };
@@ -246,7 +241,6 @@ export class MemStorage implements IStorage {
     return user;
   }
   
-  // Category methods
   async getCategories(): Promise<Category[]> {
     return Array.from(this.categories.values());
   }
@@ -257,34 +251,36 @@ export class MemStorage implements IStorage {
   
   async getCategoryBySlug(slug: string): Promise<Category | undefined> {
     return Array.from(this.categories.values()).find(
-      (category) => category.slug === slug,
+      category => category.slug === slug
     );
   }
   
   async createCategory(insertCategory: InsertCategory): Promise<Category> {
     const id = this.currentCategoryId++;
+    const createdAt = new Date();
     const category: Category = { 
       ...insertCategory, 
       id, 
+      createdAt,
+      updatedAt: createdAt,
       count: 0,
-      imageUrl: insertCategory.imageUrl || null 
+      imageUrl: insertCategory.imageUrl || null
     };
     this.categories.set(id, category);
     return category;
   }
   
   async updateCategoryCount(id: number, count: number): Promise<Category> {
-    const category = this.categories.get(id);
+    const category = await this.getCategoryById(id);
     if (!category) {
-      throw new Error(`Category with id ${id} not found`);
+      throw new Error(`Category with ID ${id} not found`);
     }
     
-    const updatedCategory = { ...category, count };
+    const updatedCategory = { ...category, count, updatedAt: new Date() };
     this.categories.set(id, updatedCategory);
     return updatedCategory;
   }
   
-  // Auction methods
   async getAuctions(): Promise<Auction[]> {
     return Array.from(this.auctions.values());
   }
@@ -295,30 +291,29 @@ export class MemStorage implements IStorage {
   
   async getAuctionsByCategory(categoryId: number): Promise<Auction[]> {
     return Array.from(this.auctions.values()).filter(
-      (auction) => auction.categoryId === categoryId,
+      auction => auction.categoryId === categoryId
     );
   }
   
   async getAuctionsBySeller(sellerId: number): Promise<Auction[]> {
     return Array.from(this.auctions.values()).filter(
-      (auction) => auction.sellerId === sellerId,
+      auction => auction.sellerId === sellerId
     );
   }
   
   async createAuction(insertAuction: InsertAuction): Promise<Auction> {
     const id = this.currentAuctionId++;
     const createdAt = new Date();
-    
-    // Ensure all fields have proper types
     const auction: Auction = { 
       ...insertAuction, 
       id, 
       createdAt,
+      updatedAt: createdAt,
+      featured: insertAuction.featured || false,
+      bidCount: 0,
       status: insertAuction.status || 'active',
-      startTime: insertAuction.startTime || new Date(),
-      featured: insertAuction.featured ?? null
+      startTime: insertAuction.startTime || new Date()
     };
-    
     this.auctions.set(id, auction);
     
     // Update category count
@@ -331,27 +326,31 @@ export class MemStorage implements IStorage {
   }
   
   async updateAuction(id: number, data: Partial<Auction>): Promise<Auction | undefined> {
-    const auction = this.auctions.get(id);
+    const auction = await this.getAuctionById(id);
     if (!auction) {
       return undefined;
     }
     
-    const updatedAuction = { ...auction, ...data };
+    const updatedAuction = { 
+      ...auction, 
+      ...data, 
+      updatedAt: new Date() 
+    };
+    
     this.auctions.set(id, updatedAuction);
     return updatedAuction;
   }
   
   async getFeaturedAuctions(): Promise<Auction[]> {
     return Array.from(this.auctions.values()).filter(
-      (auction) => auction.featured === true,
+      auction => auction.featured
     );
   }
   
-  // Bid methods
   async getBidsForAuction(auctionId: number): Promise<Bid[]> {
-    return Array.from(this.bids.values()).filter(
-      (bid) => bid.auctionId === auctionId,
-    );
+    return Array.from(this.bids.values())
+      .filter(bid => bid.auctionId === auctionId)
+      .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount));
   }
   
   async createBid(insertBid: InsertBid): Promise<Bid> {
@@ -360,10 +359,13 @@ export class MemStorage implements IStorage {
     const bid: Bid = { ...insertBid, id, createdAt };
     this.bids.set(id, bid);
     
-    // Update auction current price
+    // Update auction price
     const auction = await this.getAuctionById(insertBid.auctionId);
     if (auction) {
-      await this.updateAuction(auction.id, { currentPrice: insertBid.amount });
+      await this.updateAuction(auction.id, { 
+        currentPrice: insertBid.amount,
+        bidCount: (auction.bidCount || 0) + 1
+      });
     }
     
     return bid;
@@ -371,18 +373,12 @@ export class MemStorage implements IStorage {
   
   async getHighestBid(auctionId: number): Promise<Bid | undefined> {
     const bids = await this.getBidsForAuction(auctionId);
-    if (bids.length === 0) {
-      return undefined;
-    }
-    
-    // Sort bids by amount in descending order and return the first one
-    return bids.sort((a, b) => Number(b.amount) - Number(a.amount))[0];
+    return bids.length > 0 ? bids[0] : undefined;
   }
   
-  // Watchlist methods
   async getWatchlistForUser(userId: number): Promise<Watchlist[]> {
     return Array.from(this.watchlist.values()).filter(
-      (item) => item.userId === userId,
+      item => item.userId === userId
     );
   }
   
@@ -419,4 +415,5 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+// Use DatabaseStorage instead of MemStorage
+export const storage = new DatabaseStorage();

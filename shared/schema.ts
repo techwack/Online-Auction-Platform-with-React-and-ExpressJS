@@ -10,7 +10,8 @@ export const users = pgTable("users", {
   email: text("email").notNull().unique(),
   fullName: text("full_name"),
   avatar: text("avatar"),
-  createdAt: timestamp("created_at").defaultNow()
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at")
 });
 
 export const insertUserSchema = createInsertSchema(users).pick({
@@ -41,7 +42,9 @@ export const categories = pgTable("categories", {
   slug: text("slug").notNull().unique(),
   type: categoryEnum("type").notNull(),
   imageUrl: text("image_url"),
-  count: integer("count").default(0)
+  count: integer("count").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at")
 });
 
 export const insertCategorySchema = createInsertSchema(categories).pick({
@@ -73,7 +76,9 @@ export const auctions = pgTable("auctions", {
   endTime: timestamp("end_time").notNull(),
   status: auctionStatusEnum("status").notNull().default('active'),
   createdAt: timestamp("created_at").defaultNow(),
-  featured: boolean("featured").default(false)
+  updatedAt: timestamp("updated_at"),
+  featured: boolean("featured").default(false),
+  bidCount: integer("bid_count").default(0)
 });
 
 export const insertAuctionSchema = createInsertSchema(auctions).pick({
