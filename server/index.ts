@@ -1,12 +1,13 @@
-import express, { type Request, Response, NextFunction } from "express";
+import express, { type Request, type Response, type NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import cors from "cors";
+import type { Server } from "http";
 
 // Set environment variables if they're not already set
 if (!process.env.SESSION_SECRET) {
   process.env.SESSION_SECRET = "bidhub-auction-platform-secret-" + Date.now().toString();
-  console.log("SESSION_SECRET not found, using generated value");
+  log("SESSION_SECRET not found, using generated value");
 }
 
 const app = express();
@@ -17,7 +18,8 @@ app.use(cors({
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-app.use((req, res, next) => {
+// Request logging middleware
+app.use((req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
@@ -48,34 +50,33 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  const server = await registerRoutes(app);
+  const server: Server = await registerRoutes(app);
 
+  // Error handling middleware
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
     res.status(status).json({ message });
-    throw err;
+    log(`Error ${status}: ${message}`, "error");
   });
 
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
+  // Development vs Production setup
   if (app.get("env") === "development") {
     await setupVite(app, server);
+    log("Vite development server configured");
   } else {
     serveStatic(app);
+    log("Production static files serving configured");
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
+  // Start server
   const port = 5000;
   server.listen({
     port,
     host: "0.0.0.0",
     reusePort: true,
   }, () => {
-    log(`serving on port ${port}`);
+    log(`Server running on http://localhost:${port}`);
   });
 })();
