@@ -9,7 +9,15 @@ type WebSocketMessage = {
 };
 
 export function setupWebSocketServer(server: Server) {
-  const wss = new WebSocketServer({ server, path: '/ws' });
+  const wss = new WebSocketServer({ 
+    server, 
+    path: '/ws',
+    // Add WebSocket server verifyClient to handle CORS
+    verifyClient: (info, cb) => {
+      // Accept all origins
+      return cb(true);
+    }
+  });
   
   // Keep track of clients per auction room
   const auctionRooms: Map<number, Set<WebSocket>> = new Map();
@@ -126,16 +134,17 @@ export function setupWebSocketServer(server: Server) {
   }
   
   function removeFromAllRooms(ws: WebSocket) {
-    for (const [_, clients] of auctionRooms.entries()) {
+    // Use forEach instead of for...of for better compatibility
+    auctionRooms.forEach((clients) => {
       clients.delete(ws);
-    }
+    });
     
     // Clean up empty rooms
-    for (const [auctionId, clients] of auctionRooms.entries()) {
+    auctionRooms.forEach((clients, auctionId) => {
       if (clients.size === 0) {
         auctionRooms.delete(auctionId);
       }
-    }
+    });
   }
   
   function broadcastToAuction(auctionId: number, message: WebSocketMessage) {
