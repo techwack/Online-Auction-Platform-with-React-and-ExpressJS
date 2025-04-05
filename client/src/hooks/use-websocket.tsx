@@ -1,7 +1,29 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useToast } from './use-toast';
+import { createContext, ReactNode, useContext } from 'react';
 
-export function useWebSocket() {
+// Message types from the server
+type WebSocketMessageType = 'bid' | 'auction_update' | 'watchlist_update' | 'error' | 'connection';
+
+// WebSocket message interface
+export interface WebSocketMessage {
+  type: WebSocketMessageType;
+  payload: any;
+}
+
+// WebSocket context type
+interface WebSocketContextType {
+  socket: WebSocket | null;
+  isConnected: boolean;
+  sendMessage: (message: WebSocketMessage) => void;
+  joinAuctionRoom: (auctionId: number) => void;
+}
+
+// Create context
+const WebSocketContext = createContext<WebSocketContextType | null>(null);
+
+// Provider component
+export function WebSocketProvider({ children }: { children: ReactNode }) {
   const [isConnected, setIsConnected] = useState(false);
   const socketRef = useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -9,6 +31,7 @@ export function useWebSocket() {
   const maxReconnectAttempts = 5;
   const { toast } = useToast();
 
+  // Establish websocket connection
   const connect = useCallback(() => {
     // Don't attempt to reconnect if max attempts reached
     if (reconnectCountRef.current >= maxReconnectAttempts) {
@@ -25,11 +48,8 @@ export function useWebSocket() {
     // Determine the correct WebSocket URL based on the current protocol
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     
-    // Handle both local development and production
-    const host = window.location.hostname === 'localhost' ? 
-      `${window.location.hostname}:5000` : window.location.host;
-    
-    const wsUrl = `${protocol}//${host}/ws`;
+    // Get the correct host, assuming API and client are on the same host in production
+    const wsUrl = `${protocol}//${window.location.host}/ws`;
     
     console.log(`Attempting WebSocket connection to: ${wsUrl} (Attempt ${reconnectCountRef.current + 1}/${maxReconnectAttempts})`);
     
@@ -64,7 +84,6 @@ export function useWebSocket() {
         }
         
         reconnectTimeoutRef.current = setTimeout(() => {
-          socketRef.current = null;
           connect();
         }, delay);
       };
@@ -86,8 +105,18 @@ export function useWebSocket() {
           const data = JSON.parse(event.data);
           console.log('WebSocket message received:', data);
           
-          // Handle different message types here if needed
-          // This could be expanded to use a context or event emitter
+          // Handle error messages with toast notifications
+          if (data.type === 'error') {
+            toast({
+              title: "WebSocket Error",
+              description: data.payload.message,
+              variant: "destructive"
+            });
+          }
+          
+          if (data.type === 'connection') {
+            console.log('Connection confirmed:', data.payload.message);
+          }
         } catch (e) {
           console.error('Error parsing WebSocket message:', e);
         }
@@ -96,6 +125,8 @@ export function useWebSocket() {
       socketRef.current = socket;
     } catch (error) {
       console.error('Error creating WebSocket:', error);
+      setIsConnected(false);
+      
       // Schedule a reconnect attempt
       const delay = Math.min(1000 * Math.pow(2, reconnectCountRef.current), 30000);
       reconnectCountRef.current++;
@@ -105,12 +136,37 @@ export function useWebSocket() {
       }
       
       reconnectTimeoutRef.current = setTimeout(() => {
-        socketRef.current = null;
         connect();
       }, delay);
     }
-  }, [toast, maxReconnectAttempts]);
+  }, [toast]);
 
+  // Send a message through the websocket
+  const sendMessage = useCallback((message: WebSocketMessage) => {
+    if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+      console.log('Sending WebSocket message:', message);
+      socketRef.current.send(JSON.stringify(message));
+      return true;
+    } else {
+      console.warn('WebSocket not connected, cannot send message');
+      // If not connected, attempt to reconnect
+      if (!isConnected && reconnectCountRef.current < maxReconnectAttempts) {
+        connect();
+      }
+      return false;
+    }
+  }, [isConnected, connect, maxReconnectAttempts]);
+
+  // Join an auction room to receive updates
+  const joinAuctionRoom = useCallback((auctionId: number) => {
+    console.log(`Joining auction room: ${auctionId}`);
+    return sendMessage({
+      type: 'auction_update',
+      payload: { auctionId }
+    });
+  }, [sendMessage]);
+
+  // Connect on mount
   useEffect(() => {
     connect();
     
@@ -126,6 +182,25 @@ export function useWebSocket() {
       }
     };
   }, [connect]);
-  
-  return socketRef.current;
+
+  // Provide the WebSocket context
+  return (
+    <WebSocketContext.Provider value={{
+      socket: socketRef.current,
+      isConnected,
+      sendMessage,
+      joinAuctionRoom
+    }}>
+      {children}
+    </WebSocketContext.Provider>
+  );
+}
+
+// Hook to use the WebSocket context
+export function useWebSocket() {
+  const context = useContext(WebSocketContext);
+  if (!context) {
+    throw new Error('useWebSocket must be used within a WebSocketProvider');
+  }
+  return context;
 }

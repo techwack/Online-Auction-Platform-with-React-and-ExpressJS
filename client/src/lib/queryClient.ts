@@ -12,12 +12,32 @@ export async function apiRequest(
   url: string,
   data?: unknown | undefined,
 ): Promise<Response> {
-  const res = await fetch(url, {
+  // Make sure URL is absolute
+  const fullUrl = url.startsWith('http') ? url : url;
+  
+  // Additional debugging
+  console.log(`Making ${method} request to ${fullUrl}`);
+  
+  const res = await fetch(fullUrl, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers: {
+      ...(data ? { "Content-Type": "application/json" } : {}),
+      // Add any additional headers here if needed
+    },
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
+
+  if (!res.ok) {
+    console.error(`API request failed: ${res.status} ${res.statusText}`);
+    console.error(`URL: ${fullUrl}`);
+    try {
+      const errorText = await res.text();
+      console.error(`Error response: ${errorText}`);
+    } catch (e) {
+      console.error('Could not read error response body');
+    }
+  }
 
   await throwIfResNotOk(res);
   return res;
@@ -29,11 +49,30 @@ export const getQueryFn: <T>(options: {
 }) => QueryFunction<T> =
   ({ on401: unauthorizedBehavior }) =>
   async ({ queryKey }) => {
-    const res = await fetch(queryKey[0] as string, {
+    const url = queryKey[0] as string;
+    
+    // Additional debugging
+    console.log(`Making query request to ${url}`);
+    
+    const res = await fetch(url, {
       credentials: "include",
+      // Add headers if needed
+      headers: {}
     });
 
+    if (!res.ok) {
+      console.error(`Query request failed: ${res.status} ${res.statusText}`);
+      console.error(`URL: ${url}`);
+      try {
+        const errorText = await res.text();
+        console.error(`Error response: ${errorText}`);
+      } catch (e) {
+        console.error('Could not read error response body');
+      }
+    }
+
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {
+      console.log('Unauthorized request, returning null as specified');
       return null;
     }
 

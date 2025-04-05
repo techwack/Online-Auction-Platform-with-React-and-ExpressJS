@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,8 @@ import BidModal from "./BidModal";
 import { formatCurrency } from "@/utils/formatters";
 import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useMutation } from "@tanstack/react-query";
 
 type AuctionCardProps = {
   auction: Auction;
@@ -23,8 +24,59 @@ const AuctionCard = ({ auction, onWatchlistToggle, isInWatchlist = false }: Auct
   const [isWatchlisted, setIsWatchlisted] = useState(isInWatchlist);
   const { user } = useAuth();
   const { toast } = useToast();
+  
+  // Update local state when prop changes
+  useEffect(() => {
+    setIsWatchlisted(isInWatchlist);
+  }, [isInWatchlist]);
 
-  const toggleWatchlist = async () => {
+  // Add to watchlist mutation
+  const addToWatchlistMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("POST", "/api/watchlist", { auctionId: auction.id });
+    },
+    onSuccess: () => {
+      setIsWatchlisted(true);
+      if (onWatchlistToggle) onWatchlistToggle();
+      queryClient.invalidateQueries({ queryKey: ['/api/watchlist'] });
+      toast({
+        title: "Added to watchlist",
+        description: "The item has been added to your watchlist",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "There was an error updating your watchlist",
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Remove from watchlist mutation
+  const removeFromWatchlistMutation = useMutation({
+    mutationFn: async () => {
+      await apiRequest("DELETE", `/api/watchlist/${auction.id}`);
+    },
+    onSuccess: () => {
+      setIsWatchlisted(false);
+      if (onWatchlistToggle) onWatchlistToggle();
+      queryClient.invalidateQueries({ queryKey: ['/api/watchlist'] });
+      toast({
+        title: "Removed from watchlist",
+        description: "The item has been removed from your watchlist",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message || "There was an error updating your watchlist",
+        variant: "destructive",
+      });
+    }
+  });
+
+  const toggleWatchlist = () => {
     if (!user) {
       toast({
         title: "Authentication required",
@@ -34,32 +86,10 @@ const AuctionCard = ({ auction, onWatchlistToggle, isInWatchlist = false }: Auct
       return;
     }
 
-    try {
-      if (isWatchlisted) {
-        await apiRequest("DELETE", `/api/watchlist/${auction.id}`);
-        setIsWatchlisted(false);
-        toast({
-          title: "Removed from watchlist",
-          description: "The item has been removed from your watchlist",
-        });
-      } else {
-        await apiRequest("POST", "/api/watchlist", { auctionId: auction.id });
-        setIsWatchlisted(true);
-        toast({
-          title: "Added to watchlist",
-          description: "The item has been added to your watchlist",
-        });
-      }
-      
-      if (onWatchlistToggle) {
-        onWatchlistToggle();
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "There was an error updating your watchlist",
-        variant: "destructive",
-      });
+    if (isWatchlisted) {
+      removeFromWatchlistMutation.mutate();
+    } else {
+      addToWatchlistMutation.mutate();
     }
   };
 
@@ -98,9 +128,9 @@ const AuctionCard = ({ auction, onWatchlistToggle, isInWatchlist = false }: Auct
         <CardContent className="p-4">
           <div className="flex justify-between items-start mb-2">
             <Link href={`/auction/${auction.id}`}>
-              <a className="font-semibold text-lg text-neutral-900 hover:underline">
+              <span className="font-semibold text-lg text-neutral-900 hover:underline cursor-pointer">
                 {auction.title}
-              </a>
+              </span>
             </Link>
             <button 
               className={`text-neutral-400 hover:text-neutral-700 ${isWatchlisted ? 'text-primary-500 hover:text-primary-700' : ''}`}

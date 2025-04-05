@@ -1,61 +1,47 @@
-import { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { ArrowRight } from "lucide-react";
 import AuctionCard from "./AuctionCard";
 import { Auction } from "@shared/schema";
-import { apiRequest } from "@/lib/queryClient";
+import { useQuery } from "@tanstack/react-query";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AlertCircle } from "lucide-react";
 
 const FeaturedAuctions = () => {
-  const [auctions, setAuctions] = useState<Auction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    const fetchFeaturedAuctions = async () => {
-      try {
-        setLoading(true);
-        const response = await fetch('/api/auctions/featured');
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch featured auctions');
-        }
-        
-        const data = await response.json();
-        setAuctions(data);
-      } catch (err: any) {
-        setError(err.message);
-        console.error('Error fetching featured auctions:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
+  // Use React Query to fetch featured auctions
+  const {
+    data: featuredAuctions = [],
+    isLoading: isFeaturedLoading,
+    error: featuredError,
+  } = useQuery<Auction[]>({
+    queryKey: ['/api/auctions/featured'],
+    staleTime: 60000, // 1 minute
+    retry: 2,
+  });
+  
+  // Use React Query to fetch all auctions as fallback
+  const {
+    data: allAuctions = [],
+    isLoading: isAllLoading,
+    error: allError,
+  } = useQuery<Auction[]>({
+    queryKey: ['/api/auctions'],
+    staleTime: 60000, // 1 minute
+    retry: 2,
+    // Only fetch all auctions if there are no featured auctions
+    enabled: !isFeaturedLoading && featuredAuctions.length === 0,
+  });
+  
+  // Determine which auctions to display
+  const auctions = featuredAuctions.length > 0 
+    ? featuredAuctions 
+    : allAuctions.slice(0, 3);
     
-    fetchFeaturedAuctions();
-  }, []);
-
-  // If there are no featured auctions yet, get the first 3 auctions
-  useEffect(() => {
-    const fetchAllAuctions = async () => {
-      if (!loading && auctions.length === 0) {
-        try {
-          const response = await fetch('/api/auctions');
-          
-          if (!response.ok) {
-            throw new Error('Failed to fetch auctions');
-          }
-          
-          const data = await response.json();
-          // Take the first 3 auctions
-          setAuctions(data.slice(0, 3));
-        } catch (err) {
-          console.error('Error fetching all auctions:', err);
-        }
-      }
-    };
-    
-    fetchAllAuctions();
-  }, [loading, auctions.length]);
+  // Determine loading and error states
+  const isLoading = isFeaturedLoading || (isAllLoading && featuredAuctions.length === 0);
+  const hasError = featuredError || (featuredAuctions.length === 0 && allError);
+  const errorMessage = hasError
+    ? ((featuredError || allError) as Error)?.message || "Failed to load auctions"
+    : null;
 
   return (
     <section className="py-12 bg-white">
@@ -67,7 +53,7 @@ const FeaturedAuctions = () => {
           </Link>
         </div>
         
-        {loading ? (
+        {isLoading ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[1, 2, 3].map((i) => (
               <div key={i} className="border rounded-lg overflow-hidden">
@@ -84,10 +70,13 @@ const FeaturedAuctions = () => {
               </div>
             ))}
           </div>
-        ) : error ? (
+        ) : errorMessage ? (
           <div className="text-center p-8 bg-red-50 rounded-lg">
-            <p className="text-red-600">{error}</p>
-            <p className="mt-2 text-neutral-600">Unable to load featured auctions. Please try again later.</p>
+            <div className="flex items-center justify-center gap-2 text-red-600 mb-2">
+              <AlertCircle size={20} />
+              <p className="font-medium">Error loading auctions</p>
+            </div>
+            <p className="text-neutral-600">Unable to load featured auctions. Please try again later.</p>
           </div>
         ) : auctions.length === 0 ? (
           <div className="text-center p-8 bg-neutral-50 rounded-lg">

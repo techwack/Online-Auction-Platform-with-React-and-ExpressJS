@@ -3,6 +3,12 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import cors from "cors";
 
+// Set environment variables if they're not already set
+if (!process.env.SESSION_SECRET) {
+  process.env.SESSION_SECRET = "bidhub-auction-platform-secret-" + Date.now().toString();
+  console.log("SESSION_SECRET not found, using generated value");
+}
+
 const app = express();
 app.use(cors({
   origin: true,

@@ -12,11 +12,8 @@ export function setupWebSocketServer(server: Server) {
   const wss = new WebSocketServer({ 
     server, 
     path: '/ws',
-    // Add WebSocket server verifyClient to handle CORS
-    verifyClient: (info, cb) => {
-      // Accept all origins
-      return cb(true);
-    }
+    // Disable verifyClient to allow all connections
+    verifyClient: () => true
   });
   
   // Keep track of clients per auction room

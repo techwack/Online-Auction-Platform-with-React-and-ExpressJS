@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import AuctionCard from "./AuctionCard";
 import { Button } from "@/components/ui/button";
 import { Auction } from "@shared/schema";
-import { useAuctions } from "@/hooks/use-auctions";
-import { Loader2 } from "lucide-react";
+import { useAuctions, useWatchlist } from "@/hooks/use-auctions";
+import { Loader2, AlertCircle } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 type AuctionGridProps = {
   title: string;
@@ -20,10 +21,14 @@ const AuctionGrid = ({
   initialLimit = 6,
   categoryId
 }: AuctionGridProps) => {
+  const queryClient = useQueryClient();
   const [limit, setLimit] = useState(initialLimit);
   const { auctions, isLoading, isError } = useAuctions(categoryId);
+  const { watchlist, isLoading: isWatchlistLoading } = useWatchlist();
   const [displayedAuctions, setDisplayedAuctions] = useState<Auction[]>([]);
-  const [watchlistItems, setWatchlistItems] = useState<number[]>([]);
+  
+  // Convert watchlist items to a list of auction IDs for easier checking
+  const watchlistAuctionIds = watchlist.map(item => item.auctionId);
 
   useEffect(() => {
     if (auctions) {
@@ -39,37 +44,13 @@ const AuctionGrid = ({
     }
   }, [auctions, limit]);
 
-  // Load user's watchlist if user is logged in
-  useEffect(() => {
-    const fetchWatchlist = async () => {
-      try {
-        const response = await fetch('/api/watchlist', { credentials: 'include' });
-        if (response.ok) {
-          const data = await response.json();
-          setWatchlistItems(data.map((item: any) => item.auctionId));
-        }
-      } catch (error) {
-        console.error('Error fetching watchlist:', error);
-      }
-    };
-    
-    fetchWatchlist();
-  }, []);
-
   const loadMore = () => {
     setLimit(prevLimit => prevLimit + 6);
   };
 
-  const refreshWatchlist = async () => {
-    try {
-      const response = await fetch('/api/watchlist', { credentials: 'include' });
-      if (response.ok) {
-        const data = await response.json();
-        setWatchlistItems(data.map((item: any) => item.auctionId));
-      }
-    } catch (error) {
-      console.error('Error refreshing watchlist:', error);
-    }
+  const refreshWatchlist = () => {
+    // Invalidate watchlist query to trigger a refresh
+    queryClient.invalidateQueries({ queryKey: ['/api/watchlist'] });
   };
 
   if (isLoading) {
@@ -87,9 +68,21 @@ const AuctionGrid = ({
     return (
       <div className="py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="text-center p-8">
-            <h2 className="text-2xl font-bold text-red-500">Error</h2>
-            <p className="mt-2 text-neutral-600">Unable to load auctions. Please try again later.</p>
+          <div className="text-center p-8 bg-red-50 rounded-lg">
+            <div className="flex items-center justify-center gap-2 text-red-600 mb-2">
+              <AlertCircle size={24} />
+              <h2 className="text-xl font-bold">Error Loading Auctions</h2>
+            </div>
+            <p className="mt-2 text-neutral-600">
+              We couldn't load the auction listings. Please try again later or contact support if the problem persists.
+            </p>
+            <Button 
+              variant="outline" 
+              className="mt-4 border-red-200 text-red-600 hover:bg-red-50"
+              onClick={() => queryClient.invalidateQueries({ queryKey: [categoryId ? `/api/auctions/category/${categoryId}` : '/api/auctions'] })}
+            >
+              Retry
+            </Button>
           </div>
         </div>
       </div>
@@ -128,7 +121,7 @@ const AuctionGrid = ({
                 <AuctionCard 
                   key={auction.id} 
                   auction={auction} 
-                  isInWatchlist={watchlistItems.includes(auction.id)}
+                  isInWatchlist={watchlistAuctionIds.includes(auction.id)}
                   onWatchlistToggle={refreshWatchlist}
                 />
               ))}
