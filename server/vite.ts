@@ -1,10 +1,15 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from 'url'; // Add this import
 import { createServer as createViteServer, type ViteDevServer, createLogger, type Logger } from "vite";
 import type { Server as HttpServer } from "http";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
+
+// Get ESM-compatible __dirname equivalent
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const viteLogger: Logger = createLogger();
 
@@ -39,7 +44,7 @@ export async function setupVite(app: Express, httpServer: HttpServer): Promise<v
     customLogger: viteLogger,
     server: serverOptions,
     appType: "custom",
-    root: path.resolve(__dirname, '..'),
+    root: path.resolve(__dirname, '..'), // Now works in ESM
   });
 
   app.use(vite.middlewares);

@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import cors from "cors";
 import type { Server } from "http";
+import 'dotenv/config'; // Add this at the top
 
 // Set environment variables if they're not already set
 if (!process.env.SESSION_SECRET) {
@@ -69,14 +70,9 @@ app.use((req: Request, res: Response, next: NextFunction) => {
     serveStatic(app);
     log("Production static files serving configured");
   }
-
-  // Start server
-  const port = 5000;
-  server.listen({
-    port,
-    host: "0.0.0.0",
-    reusePort: true,
-  }, () => {
-    log(`Server running on http://localhost:${port}`);
+  const PORT = process.env.PORT || 3000; // 👈 Here's where it goes
+  app.listen(PORT, () => {
+    log(`Server running on port ${PORT}`);
   });
+  // Start server
 })();
