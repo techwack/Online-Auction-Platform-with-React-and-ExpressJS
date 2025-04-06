@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectVa
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2 } from "lucide-react";
-import { insertAuctionSchema } from "@shared/schema";
+import { insertAuctionSchema } from "server/schema";
 
 // Extend the schema with more validation rules
 const formSchema = insertAuctionSchema.extend({

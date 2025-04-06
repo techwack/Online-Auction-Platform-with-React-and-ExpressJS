@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Auction } from "@shared/schema";
+import { Auction } from "server/schema";
 
 export function useAuctions(categoryId?: number) {
   const endpoint = categoryId 

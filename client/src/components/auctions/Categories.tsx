@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import CategoryCard from "./CategoryCard";
-import { Category } from "@shared/schema";
+import { Category } from "server/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { Skeleton } from "@/components/ui/skeleton";
 

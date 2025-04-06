@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'wouter';
-import { Category } from '@shared/schema';
+import { Category } from 'server/schema';
 
 type CategoryCardProps = {
   category: Category;

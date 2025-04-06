@@ -1,6 +1,6 @@
 import { users, type User, type InsertUser, categories, type Category, type InsertCategory, 
   auctions, type Auction, type InsertAuction, bids, type Bid, type InsertBid, 
-  watchlist, type Watchlist, type InsertWatchlist } from "@shared/schema";
+  watchlist, type Watchlist, type InsertWatchlist } from "server/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
 
