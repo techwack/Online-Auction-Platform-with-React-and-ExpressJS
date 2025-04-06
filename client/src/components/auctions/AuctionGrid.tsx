@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import AuctionCard from "./AuctionCard";
 import { Button } from "@/components/ui/button";
-import { Auction } from "server/schema";
+import { Auction } from "@shared/schema";
 import { useAuctions, useWatchlist } from "@/hooks/use-auctions";
 import { Loader2, AlertCircle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";

@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { setupWebSocketServer } from "./websocket";
 import { z } from "zod";
-import { insertAuctionSchema, insertBidSchema, insertWatchlistSchema } from "server/schema";
+import { insertAuctionSchema, insertBidSchema, insertWatchlistSchema } from "@shared/schema";
 
 // Authentication middleware
 function isAuthenticated(req: any, res: any, next: any) {

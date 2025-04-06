@@ -9,7 +9,7 @@ import {
   users, categories, auctions, bids, watchlist,
   type User, type Category, type Auction, type Bid, type Watchlist,
   type InsertUser, type InsertCategory, type InsertAuction, type InsertBid, type InsertWatchlist
-} from "server/schema";
+} from "@shared/schema";
 
 // Create PostgreSQL session store
 const PostgresSessionStore = connectPg(session);

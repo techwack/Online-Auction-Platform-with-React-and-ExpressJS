@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Heart } from "lucide-react";
-import { Auction } from "server/schema";
+import { Auction } from "@shared/schema";
 import CountdownTimer from "./CountdownTimer";
 import BidModal from "./BidModal";
 import { formatCurrency } from "@/utils/formatters";
